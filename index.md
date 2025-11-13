@@ -12,9 +12,12 @@ layout: default
 {%- for file in site.static_files -%}
   {%- assign path = file.path -%}
   {%- assign name = file.path | split:"/" | last -%}
+  {%- assign ext = file.extname | downcase -%}
 
   {%- if path != "/index.html"
         and name != "index.md"
+        and ext != ".scss"
+        and ext != ".sass"
         and path contains "/assets/" == false
         and path contains "/css/" == false
         and path contains "/scss/" == false
