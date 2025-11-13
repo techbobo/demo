@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>自然时间选择 Demo（小时/天 · 拖拽 & 实时时间）</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    body { margin: 0; padding: 24px; background: #f5f7fb; }
+    .page { max-width: 1100px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 13px; margin-bottom: 8px; }
+    .clock { font-size: 12px; color: #444; margin-bottom: 18px; }
+    .clock b { font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; }
+    .layout { display: flex; gap: 20px; align-items: stretch; }
+    .panel { background: #fff; border-radius: 16px; padding: 18px 20px; box-shadow: 0 10px 30px rgba(15,35,95,0.08);}    
+    .panel-left { width: 340px; }
+    .panel-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .chip { padding: 6px 10px; border-radius:999px; border:1px solid #d3d9e8; background:#fff; cursor:pointer; font-size:13px; margin: 4px 4px 0 0; user-select:none; }
+    .chip.active{ background:#4b7cff; color:#fff; border-color:#4b7cff; box-shadow:0 6px 14px rgba(75,124,255,0.35);}    
+    .chip-mode { font-size:12px; padding:4px 10px; }
+    .hint { font-size:12px; color:#777; margin-top:6px; }
+    .timeline-bar{ position:relative; height:22px; border-radius:999px; background:linear-gradient(90deg,#e5e7f0,#d6d9e6); margin-top:18px; cursor:crosshair; }
+    .timeline-selected{ position:absolute; top:2px; bottom:2px; border-radius:999px; background:linear-gradient(90deg,#4b7cff,#38bdf8); transition:all .12s; box-shadow:0 0 0 1px rgba(248,250,252,0.8),0 4px 10px rgba(56,189,248,0.35); }
+    .timeline-now-marker{ position:absolute; right:0; top:-4px; bottom:-4px; width:2px; background:#111827; border-radius:4px; }
+    .timeline-now-marker::after{ content:"现在"; position:absolute; top:-16px; right:0; transform:translateX(50%); font-size:10px; padding:0 4px; border-radius:999px; background:#f9fafb; border:1px solid rgba(15,23,42,0.08); }
+    .timeline-labels { display:flex; justify-content:space-between; font-size:11px; color:#555; margin-top:6px; }
+    .timeline-labels span { font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; }
+    #detail { margin-top:12px; font-size:13px; background:#f3f4ff; border-radius:12px; padding:10px 12px; border:1px dashed #c7cffc; }
+    #detail b { font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-weight:500; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>自然时间选择 · 动态 Demo（支持拖拽 + 小时/天切换 + 自然时间展示）</h1>
+    <div class="subtitle">
+      说明：
+      <br>· 选择的是「整小时 / 整天」的自然时间段，例如「当前小时 = 17:00 ~ 当前时间」。
+      <br>· 如果结束是“现在”，结束时间会一秒一秒往前走；开始时间按整点/整天对齐。
+    </div>
+    <div id="clock" class="clock">当前时间：<b>--:--:--</b></div>
+
+    <div class="layout">
+      <div class="panel panel-left">
+        <div class="panel-title">粒度 & 快捷选择</div>
+        <div style="font-size:12px;color:#555;margin-bottom:6px;">粒度：</div>
+        <div style="margin-bottom:8px;">
+          <button class="chip chip-mode active" id="modeHour" data-unit="hour">按小时</button>
+          <button class="chip chip-mode" id="modeDay" data-unit="day">按天</button>
+        </div>
+        <div class="hint">
+          · <b>按小时</b>：区间按「整点」对齐，例如当前小时 = 17:00 ~ 当前时间。
+          <br>· <b>按天</b>：区间按「日期」对齐，例如当天 = 00:00 ~ 当前时间。
+        </div>
+
+        <div style="margin-top:14px;font-size:12px;color:#555;">小时粒度 · 常用快捷</div>
+        <div id="presetHours">
+          <button class="chip" data-unit="hour" data-type="currentHour">当前小时</button>
+          <button class="chip" data-unit="hour" data-type="last" data-hours="1">最近 1 小时（滚动窗口）</button>
+          <button class="chip" data-unit="hour" data-type="last" data-hours="3">最近 3 小时（滚动窗口）</button>
+          <button class="chip" data-unit="hour" data-type="shift" data-start="5" data-end="2">前 5 小时 → 前 2 小时</button>
+        </div>
+
+        <div style="margin-top:14px;font-size:12px;color:#555;">天粒度 · 常用快捷</div>
+        <div id="presetDays">
+          <button class="chip" data-unit="day" data-type="currentDay">当天</button>
+          <button class="chip" data-unit="day" data-type="lastDays" data-days="1">最近 1 天（滚动窗口）</button>
+          <button class="chip" data-unit="day" data-type="lastDays" data-days="3">最近 3 天（滚动窗口）</button>
+          <button class="chip" data-unit="day" data-type="shiftDays" data-start-days="5" data-end-days="2">前 5 天 → 前 2 天</button>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1;">
+        <div id="summary">当前选择：<b>暂无</b></div>
+        <div id="hintBar" style="font-size:12px;color:#888;margin-top:4px;">
+          当前为 <b>按小时</b> 模式：灰色条表示自然时间轴，右端是“现在”；蓝色区是你选中的时间段（支持拖拽）。
+        </div>
+        <div class="timeline-bar" id="timelineBar">
+          <div id="selected" class="timeline-selected" style="left:70%;width:20%;"></div>
+          <div class="timeline-now-marker"></div>
+        </div>
+        <div class="timeline-labels" id="axisLabels">
+          <span>开始：--</span>
+          <span>结束：--</span>
+        </div>
+        <div id="detail"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function pad(n){return n<10?'0'+n:n;}
+function fmt(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;}
+
+function floorToHour(d){
+  const r = new Date(d);
+  r.setMinutes(0,0,0);
+  return r;
+}
+function floorToDay(d){
+  const r = new Date(d);
+  r.setHours(0,0,0,0);
+  return r;
+}
+
+let currentUnit = 'hour'; // 'hour' 或 'day'
+// selection 表示「相对现在」的偏移（整数小时/天），同时保存模式：
+// startOffset = 开始是前多少小时/天；endOffset = 结束是前多少小时/天（0 表示现在）
+let selection = { unit: 'hour', startOffset: 1, endOffset: 0, mode: 'rolling' }; // mode: 'rolling' 或 'aligned'
+
+const clockEl    = document.getElementById('clock');
+const summaryEl  = document.getElementById('summary');
+const detailEl   = document.getElementById('detail');
+const selectedEl = document.getElementById('selected');
+const barEl      = document.getElementById('timelineBar');
+const modeHourBtn= document.getElementById('modeHour');
+const modeDayBtn = document.getElementById('modeDay');
+const hintBar    = document.getElementById('hintBar');
+const axisLabels = document.getElementById('axisLabels');
+const chips = Array.from(document.querySelectorAll('.chip')).filter(c => !c.classList.contains('chip-mode'));
+
+function getRangeUnits(){ return currentUnit === 'hour' ? 24 : 7; }
+
+function clearChipActive(){ chips.forEach(c => c.classList.remove('active')); }
+
+function setUnit(unit){
+  currentUnit = unit;
+  if(unit === 'hour'){
+    modeHourBtn.classList.add('active');
+    modeDayBtn.classList.remove('active');
+    hintBar.innerHTML = '当前为 <b>按小时</b> 模式：区间按整点对齐，例如“当前小时 = 17:00 ~ 当前时间”。也可选择滚动窗口（最近 N 小时）。';
+  } else {
+    modeDayBtn.classList.add('active');
+    modeHourBtn.classList.remove('active');
+    hintBar.innerHTML = '当前为 <b>按天</b> 模式：区间按日期对齐，例如“当天 = 00:00 ~ 当前时间”。也可选择滚动窗口（最近 N 天）。';
+  }
+}
+
+function describeRangeText(startOffset, endOffset, mode){
+  const name = currentUnit === 'hour' ? '小时' : '天';
+  const span = startOffset - endOffset;
+  // 对齐模式时做一点更自然的文案：
+  if(mode === 'aligned'){
+    if(currentUnit === 'hour' && startOffset === 1 && endOffset === 0){
+      return '当前小时（从本小时整点到现在）';
+    }
+    if(currentUnit === 'day' && startOffset === 1 && endOffset === 0){
+      return '当天（从今日 00:00 到现在）';
+    }
+  }
+  if(endOffset === 0){
+    return `最近 ${span} ${name}（从前 ${startOffset} ${name}到现在）`;
+  }
+  return `从前 ${startOffset} ${name}到前 ${endOffset} ${name}`;
+}
+
+function renderWithNow(){
+  const now = new Date();
+  const maxUnits = getRangeUnits();
+
+  // 时钟
+  clockEl.innerHTML = `当前时间：<b>${fmt(now)}</b>`;
+
+  // 纠正 selection 粒度
+  if(selection.unit !== currentUnit){
+    selection = { unit: currentUnit, startOffset: 1, endOffset: 0, mode: 'aligned' };
+  }
+  let { startOffset, endOffset, mode } = selection;
+  startOffset = Math.min(Math.max(startOffset, 0), maxUnits);
+  endOffset   = Math.min(Math.max(endOffset, 0), maxUnits);
+  if(startOffset < endOffset){ const t = startOffset; startOffset = endOffset; endOffset = t; }
+
+  // 计算自然时间的开始/结束
+  let start, end;
+  if(currentUnit === 'hour'){
+    const unitMs = 3600000;
+    if(mode === 'aligned' && startOffset === 1 && endOffset === 0){
+      // 当前小时：从本小时整点到现在
+      start = floorToHour(now);
+      end   = now; // 实时往前走
+    } else {
+      // 其他小时区间：按整点对齐
+      const startBase = new Date(now.getTime() - startOffset * unitMs);
+      const endBase   = new Date(now.getTime() - endOffset   * unitMs);
+      const startHour = floorToHour(startBase);
+      if(endOffset === 0){
+        end = now;
+      } else {
+        const endHourStart = floorToHour(endBase);
+        end = new Date(endHourStart.getTime() + unitMs - 1000); // 该小时的 59:59
+      }
+      start = startHour;
+    }
+  } else {
+    const unitMs = 24 * 3600000;
+    if(mode === 'aligned' && startOffset === 1 && endOffset === 0){
+      // 当天：从今日 00:00 到现在
+      start = floorToDay(now);
+      end   = now;
+    } else {
+      const startBase = new Date(now.getTime() - startOffset * unitMs);
+      const endBase   = new Date(now.getTime() - endOffset   * unitMs);
+      const startDay  = floorToDay(startBase);
+      if(endOffset === 0){
+        end = now;
+      } else {
+        const endDayStart = floorToDay(endBase);
+        end = new Date(endDayStart.getTime() + unitMs - 1000); // 23:59:59
+      }
+      start = startDay;
+    }
+  }
+
+  // 根据相对偏移更新选中区在时间轴上的位置（不需要轴的绝对时间）
+  const leftPct  = (maxUnits - startOffset) / maxUnits * 100;
+  const rightPct = (maxUnits - endOffset)   / maxUnits * 100;
+  const left = Math.min(leftPct, rightPct);
+  const width = Math.abs(rightPct - leftPct);
+  selectedEl.style.left = left + '%';
+  selectedEl.style.width = width + '%';
+
+  // 文案 & 详情
+  const name = currentUnit === 'hour' ? '小时' : '天';
+  const spanUnits = startOffset - endOffset;
+  const label = describeRangeText(startOffset, endOffset, mode);
+
+  summaryEl.innerHTML = `当前选择：<b>${label}</b>`;
+  detailEl.innerHTML = `
+    当前时间：<b>${fmt(now)}</b><br>
+    时间跨度：<b>${spanUnits} ${name}</b><br>
+    开始时间：<b>${fmt(start)}</b><br>
+    结束时间：<b>${fmt(end)}</b>
+  `;
+
+  // 时间轴下方只展示「当前选择区间」的开始和结束自然时间
+  axisLabels.innerHTML = `<span>开始：${fmt(start)}</span><span>结束：${fmt(end)}</span>`;
+}
+
+function updateSelection(unit, startOffset, endOffset, mode){
+  setUnit(unit);
+  selection = { unit, startOffset, endOffset, mode };
+  renderWithNow();
+}
+
+// 快捷按钮逻辑
+chips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    clearChipActive();
+    chip.classList.add('active');
+
+    const type = chip.dataset.type;
+
+    if(type === 'currentHour'){
+      // 当前小时：整点 ~ 现在
+      updateSelection('hour', 1, 0, 'aligned');
+    } else if(type === 'last'){
+      const h = Number(chip.dataset.hours);
+      updateSelection('hour', h, 0, 'rolling');
+    } else if(type === 'shift'){
+      const startH = Number(chip.dataset.start);
+      const endH   = Number(chip.dataset.end);
+      updateSelection('hour', startH, endH, 'rolling');
+    } else if(type === 'currentDay'){
+      updateSelection('day', 1, 0, 'aligned');
+    } else if(type === 'lastDays'){
+      const d = Number(chip.dataset.days);
+      updateSelection('day', d, 0, 'rolling');
+    } else if(type === 'shiftDays'){
+      const startD = Number(chip.dataset.startDays);
+      const endD   = Number(chip.dataset.endDays);
+      updateSelection('day', startD, endD, 'rolling');
+    }
+  });
+});
+
+// 拖拽逻辑（基于百分比 -> 整数偏移，仍然是「滚动窗口」语义）
+let isDragging = false;
+let dragStartPct = 0;
+
+barEl.addEventListener('mousedown', (e) => {
+  const rect = barEl.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const pct = (x / rect.width) * 100;
+  dragStartPct = Math.min(Math.max(pct, 0), 100);
+  isDragging = true;
+  clearChipActive();
+  selectedEl.style.left = dragStartPct + '%';
+  selectedEl.style.width = '0%';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if(!isDragging) return;
+  const rect = barEl.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  x = Math.min(Math.max(x, 0), rect.width);
+  const pct = (x / rect.width) * 100;
+  const left = Math.min(dragStartPct, pct);
+  const width = Math.abs(pct - dragStartPct);
+  selectedEl.style.left = left + '%';
+  selectedEl.style.width = width + '%';
+});
+
+document.addEventListener('mouseup', (e) => {
+  if(!isDragging) return;
+  isDragging = false;
+  const rect = barEl.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  x = Math.min(Math.max(x, 0), rect.width);
+  const endPct = (x / rect.width) * 100;
+  const leftPct = Math.min(dragStartPct, endPct);
+  const rightPct = Math.max(dragStartPct, endPct);
+
+  const maxUnits = getRangeUnits();
+  // 百分比 -> 偏移（0~maxUnits），仍按滚动窗口解释
+  let startOffset = Math.round(maxUnits * (1 - leftPct / 100));
+  let endOffset   = Math.round(maxUnits * (1 - rightPct / 100));
+
+  startOffset = Math.min(Math.max(startOffset, 0), maxUnits);
+  endOffset   = Math.min(Math.max(endOffset, 0), maxUnits);
+
+  if(startOffset < endOffset){ const t = startOffset; startOffset = endOffset; endOffset = t; }
+
+  if(startOffset === endOffset){
+    if(startOffset < maxUnits){
+      startOffset += 1;
+    } else if(endOffset > 0){
+      endOffset -= 1;
+    }
+  }
+
+  updateSelection(currentUnit, startOffset, endOffset, 'rolling');
+});
+
+// 模式切换按钮
+modeHourBtn.addEventListener('click', () => {
+  if(currentUnit === 'hour') return;
+  updateSelection('hour', 1, 0, 'aligned');
+});
+modeDayBtn.addEventListener('click', () => {
+  if(currentUnit === 'day') return;
+  updateSelection('day', 1, 0, 'aligned');
+});
+
+// 初始化：默认当前小时
+window.addEventListener('load', () => {
+  // 初始选中当前小时（本小时整点 ~ 现在）
+  updateSelection('hour', 1, 0, 'aligned');
+});
+// 全局定时器：无论是否操作，每秒重算一次开始/结束时间
+setInterval(renderWithNow, 1000);
+</script>
+</body>
+</html>
