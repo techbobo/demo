@@ -15,10 +15,10 @@ layout: default
 
   {%- if path != "/index.html"
         and name != "index.md"
-        and path does not contain "/assets/"
-        and path does not contain "/css/"
-        and path does not contain "/scss/"
-        and path does not contain "/styles/" -%}
+        and path contains "/assets/" == false
+        and path contains "/css/" == false
+        and path contains "/scss/" == false
+        and path contains "/styles/" == false -%}
 
       <li><a href="{{ file.path | relative_url }}">{{ name }}</a></li>
 
